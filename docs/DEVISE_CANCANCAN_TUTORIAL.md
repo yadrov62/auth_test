@@ -302,6 +302,8 @@ Require users to log in before accessing tasks, and associate tasks with users.
 
 Remove the placeholder methods we had before and add Devise's authentication requirement:
 
+> ⚠️ **IMPORTANT:** Replace the ENTIRE contents of `application_controller.rb` with the code below. The old placeholder methods (`current_user`, `user_signed_in?`, `authenticate_user!`) must be removed because Devise provides these automatically. If you keep them, they will override Devise's methods and break authentication!
+
 ```ruby
 # app/controllers/application_controller.rb
 
@@ -1267,6 +1269,259 @@ You can also use CanCanCan helpers in views to show/hide elements:
 
 ---
 
+# Part 8 — Creating an Admin User
+
+## Goal
+
+Add an admin role that can manage ALL tasks, not just their own.
+
+---
+
+### Step 8.1: Generate migration to add admin column
+
+We need a way to identify admin users. The simplest approach is adding a boolean `admin` column:
+
+```bash
+rails generate migration AddAdminToUsers admin:boolean
+```
+
+---
+
+### Step 8.2: Edit the migration
+
+Set the default value to `false` so regular users are not admins by default:
+
+```ruby
+# db/migrate/XXXXXXXXXXXXXX_add_admin_to_users.rb
+
+class AddAdminToUsers < ActiveRecord::Migration[7.1]
+  def change
+    add_column :users, :admin, :boolean, default: false, null: false
+  end
+end
+```
+
+---
+
+### Step 8.3: Run the migration
+
+```bash
+rails db:migrate
+```
+
+**Expected output:**
+```
+== XXXXXXXXXXXXXX AddAdminToUsers: migrating ==================================
+-- add_column(:users, :admin, :boolean, {:default=>false, :null=>false})
+   -> 0.0XXXs
+== XXXXXXXXXXXXXX AddAdminToUsers: migrated (0.0XXXs) =========================
+```
+
+---
+
+### Step 8.4: Update the Ability class
+
+Now update CanCanCan to give admins full access:
+
+```ruby
+# app/models/ability.rb
+
+class Ability
+  include CanCan::Ability
+
+  def initialize(user)
+    # Return early if no user is signed in
+    return unless user.present?
+
+    # Admin users can manage everything
+    if user.admin?
+      can :manage, :all
+    else
+      # Regular users can only manage their own tasks
+      can :manage, Task, user_id: user.id
+    end
+  end
+end
+```
+
+**What this does:**
+- `can :manage, :all` — Admins can perform any action on any resource
+- Regular users still only see and manage their own tasks
+
+---
+
+### Step 8.5: Create an admin user via Rails console
+
+Open the Rails console:
+
+```bash
+rails console
+```
+
+Create an admin user:
+
+```ruby
+# Create a new admin user
+User.create!(
+  email: 'admin@example.com',
+  password: 'password123',
+  admin: true
+)
+
+# Or make an existing user an admin
+user = User.find_by(email: 'alice@example.com')
+user.update!(admin: true)
+```
+
+Verify the admin status:
+
+```ruby
+User.find_by(email: 'admin@example.com').admin?
+# => true
+```
+
+---
+
+### Step 8.6: Create admin via seeds (optional)
+
+Update your seeds file to include an admin user:
+
+```ruby
+# db/seeds.rb
+
+puts "Creating users..."
+
+# Create admin user
+admin = User.find_or_create_by!(email: 'admin@example.com') do |user|
+  user.password = 'password123'
+  user.admin = true
+end
+puts "  Admin: #{admin.email} (admin: #{admin.admin?})"
+
+# Create regular users
+alice = User.find_or_create_by!(email: 'alice@example.com') do |user|
+  user.password = 'password123'
+  user.admin = false
+end
+puts "  User: #{alice.email} (admin: #{alice.admin?})"
+
+bob = User.find_or_create_by!(email: 'bob@example.com') do |user|
+  user.password = 'password123'
+  user.admin = false
+end
+puts "  User: #{bob.email} (admin: #{bob.admin?})"
+
+# Create tasks for each user
+puts "\nCreating tasks..."
+
+alice.tasks.find_or_create_by!(title: "Alice's task 1")
+alice.tasks.find_or_create_by!(title: "Alice's task 2")
+bob.tasks.find_or_create_by!(title: "Bob's task 1")
+bob.tasks.find_or_create_by!(title: "Bob's task 2")
+
+puts "  Created #{Task.count} tasks"
+
+puts "\nDone!"
+puts "\nTest accounts:"
+puts "  Admin: admin@example.com / password123"
+puts "  User:  alice@example.com / password123"
+puts "  User:  bob@example.com / password123"
+```
+
+Run seeds:
+
+```bash
+rails db:seed
+```
+
+---
+
+### Step 8.7: Test admin access
+
+1. Log in as **admin@example.com**
+2. You should see ALL tasks from all users
+3. You can edit, delete, or toggle any task
+
+4. Log out and log in as **alice@example.com**
+5. You should only see Alice's tasks
+6. Trying to access Bob's task URL will redirect with "Access denied"
+
+---
+
+### Step 8.8: Show admin badge in the UI (optional)
+
+Update your layout to indicate when an admin is logged in:
+
+```erb
+<!-- app/views/layouts/application.html.erb -->
+
+<div class="nav-links">
+  <% if user_signed_in? %>
+    <%= link_to "All Tasks", tasks_path, class: "nav-link" %>
+    <%= link_to "New Task", new_task_path, class: "nav-link nav-link-primary" %>
+    <span class="nav-user">
+      <%= current_user.email %>
+      <% if current_user.admin? %>
+        <span class="admin-badge">ADMIN</span>
+      <% end %>
+    </span>
+    <%= button_to "Logout", destroy_user_session_path, method: :delete, class: "nav-link btn-logout" %>
+  <% else %>
+    <!-- ... -->
+  <% end %>
+</div>
+```
+
+Add CSS for the admin badge:
+
+```css
+/* app/assets/stylesheets/application.css */
+
+.admin-badge {
+  background-color: #ef4444;
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+```
+
+---
+
+### Step 8.9: Security consideration — Protect the admin attribute
+
+> ⚠️ **IMPORTANT:** Never allow the `admin` attribute to be set via forms!
+
+Make sure `admin` is NOT in your strong parameters. Users should not be able to make themselves admin through the registration form.
+
+```ruby
+# This is WRONG - never do this:
+params.require(:user).permit(:email, :password, :admin)  # ❌ DANGEROUS!
+
+# The admin attribute should only be set via:
+# - Rails console
+# - Database seeds
+# - Admin panel (if you build one)
+```
+
+Devise by default does not include `admin` in permitted parameters, so you're safe as long as you don't add it.
+
+---
+
+## Admin Summary
+
+| User Type | Permissions |
+|-----------|-------------|
+| **Guest** (not logged in) | Cannot access tasks (redirected to login) |
+| **Regular User** | Can manage only their own tasks |
+| **Admin** | Can manage ALL tasks from all users |
+
+---
+
 # Summary
 
 ## What We Accomplished
@@ -1284,6 +1539,15 @@ You can also use CanCanCan helpers in views to show/hide elements:
 - Used `load_and_authorize_resource` for automatic authorization
 - Handled unauthorized access gracefully
 
+### Part 7: Graceful Error Handling
+- Added `rescue_from CanCan::AccessDenied` for friendly redirects
+- Used `can?` helpers in views to show/hide elements
+
+### Part 8: Admin Users
+- Added `admin` boolean column to users
+- Updated Ability class to give admins full access (`can :manage, :all`)
+- Created admin users via console and seeds
+
 ---
 
 ## Key Files Changed
@@ -1294,10 +1558,11 @@ You can also use CanCanCan helpers in views to show/hide elements:
 | `config/initializers/devise.rb` | Devise configuration |
 | `app/models/user.rb` | User model with Devise modules |
 | `app/models/task.rb` | Added belongs_to :user |
-| `app/models/ability.rb` | CanCanCan authorization rules |
+| `app/models/ability.rb` | CanCanCan authorization rules (including admin) |
 | `app/controllers/application_controller.rb` | authenticate_user! and AccessDenied handler |
 | `app/controllers/tasks_controller.rb` | load_and_authorize_resource |
 | `app/views/layouts/application.html.erb` | Login/logout links |
+| `db/migrate/*_add_admin_to_users.rb` | Admin column migration |
 
 ---
 
@@ -1335,11 +1600,12 @@ cannot :destroy, Model         # Deny destroy action
 
 Once you're comfortable with the basics, you can explore:
 
-1. **Roles** — Add admin users with more permissions
+1. **Multiple roles** — Add roles like `moderator`, `manager` using gems like `rolify`
 2. **Devise modules** — Confirmable (email verification), Lockable, etc.
 3. **Custom Devise views** — `rails g devise:views`
-4. **More complex abilities** — Role-based rules, conditional permissions
+4. **Admin dashboard** — Build an admin panel to manage users
 5. **Testing** — Write tests for your abilities
+6. **API authentication** — Use `devise-jwt` for token-based auth
 
 ---
 
