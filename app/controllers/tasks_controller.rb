@@ -1,11 +1,10 @@
 class TasksController < ApplicationController
-  before_action :set_task, only: [:show, :edit, :update, :destroy, :toggle]
-
+  load_and_authorize_resource
   # GET /tasks
   # GET /tasks?filter=active
   # GET /tasks?filter=completed
   def index
-    @tasks = Task.sorted
+    @tasks = @tasks.sorted
 
     case params[:filter]
     when "active"
@@ -23,12 +22,11 @@ class TasksController < ApplicationController
 
   # GET /tasks/new
   def new
-    @task = Task.new
   end
 
   # POST /tasks
   def create
-    @task = Task.new(task_params)
+    @task.user = current_user
 
     if @task.save
       redirect_to tasks_path, notice: t("flash.tasks.created")
@@ -63,10 +61,6 @@ class TasksController < ApplicationController
   end
 
   private
-
-  def set_task
-    @task = Task.find(params[:id])
-  end
 
   def task_params
     params.require(:task).permit(:title, :completed)
