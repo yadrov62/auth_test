@@ -1,0 +1,12 @@
+one:
+  title: "First test task"
+  completed: false
+
+two:
+  title: "Second test task"
+  completed: true
+
+three:
+  title: "Third test task"
+  completed: false
+

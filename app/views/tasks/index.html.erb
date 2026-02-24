@@ -1,0 +1,50 @@
+<div class="tasks-container">
+  <div class="tasks-header">
+    <h1>Tasks</h1>
+    <%= link_to "New Task", new_task_path, class: "btn btn-primary" %>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-label">Filter:</span>
+    <%= link_to "All", tasks_path, class: filter_link_class("all") %>
+    <%= link_to "Active", tasks_path(filter: "active"), class: filter_link_class("active") %>
+    <%= link_to "Completed", tasks_path(filter: "completed"), class: filter_link_class("completed") %>
+  </div>
+
+  <% if @tasks.any? %>
+    <div class="tasks-list">
+      <% @tasks.each do |task| %>
+        <div class="task-item <%= task_status_class(task) %>">
+          <div class="task-content">
+            <div class="task-status">
+              <span class="status-badge <%= task.completed? ? 'badge-completed' : 'badge-active' %>">
+                <%= task_status_text(task) %>
+              </span>
+            </div>
+            <div class="task-title">
+              <%= link_to task.title, task_path(task) %>
+            </div>
+            <div class="task-meta">
+              Created <%= time_ago_in_words(task.created_at) %> ago
+            </div>
+          </div>
+          <div class="task-actions">
+            <%= button_to toggle_button_text(task), toggle_task_path(task), method: :patch, class: "btn btn-small btn-toggle" %>
+            <%= link_to "Edit", edit_task_path(task), class: "btn btn-small btn-secondary" %>
+            <%= button_to "Delete", task_path(task), method: :delete, class: "btn btn-small btn-danger", data: { turbo_confirm: "Are you sure you want to delete this task?" } %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="empty-state">
+      <p>No tasks found.</p>
+      <% if @current_filter != "all" %>
+        <p><%= link_to "View all tasks", tasks_path %></p>
+      <% else %>
+        <p><%= link_to "Create your first task", new_task_path %></p>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+

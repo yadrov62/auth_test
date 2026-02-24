@@ -1,0 +1,28 @@
+en:
+  hello: "Hello world"
+
+  # Flash messages
+  flash:
+    tasks:
+      created: "Task was successfully created."
+      updated: "Task was successfully updated."
+      destroyed: "Task was successfully deleted."
+      toggled: "Task status was updated."
+
+  # ActiveRecord
+  activerecord:
+    models:
+      task:
+        one: Task
+        other: Tasks
+    attributes:
+      task:
+        title: Title
+        completed: Completed
+    errors:
+      models:
+        task:
+          attributes:
+            title:
+              blank: "can't be blank"
+

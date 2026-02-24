@@ -1,0 +1,21 @@
+# PostgreSQL configuration for development and test
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5) %>
+
+development:
+  <<: *default
+  database: auth_development
+
+test:
+  <<: *default
+  database: auth_test
+
+production:
+  <<: *default
+  database: auth_production
+  username: auth
+  password: <%= ENV["AUTH_DATABASE_PASSWORD"] %>
+
