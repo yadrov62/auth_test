@@ -11,6 +11,10 @@ gem "pg", "~> 1.5"
 # Web server
 gem "puma", "~> 6.0"
 
+gem "devise", "~> 4.8"
+
+gem "cancancan"
+
 # Asset pipeline
 gem "sprockets-rails"
 

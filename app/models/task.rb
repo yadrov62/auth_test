@@ -2,6 +2,8 @@ class Task < ApplicationRecord
   # Validations
   validates :title, presence: true
 
+  belongs_to :user
+
   # Scopes for filtering
   scope :active, -> { where(completed: false) }
   scope :completed, -> { where(completed: true) }
